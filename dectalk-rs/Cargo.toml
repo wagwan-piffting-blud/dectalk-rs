@@ -1,0 +1,57 @@
+[package]
+name = "dectalk-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+[features]
+# Dev-only replay tools that diff against dumps from the original DLL (oracle/dtoracle.exe).
+oracle = []
+# Panic on any read/write of DLL data not covered by a generated table (src/tables/).
+strict-tables = []
+
+# PipeEof is an unwind, so panic must stay "unwind".
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
+[[bin]]
+name = "vtm_replay"
+path = "src/bin/vtm_replay.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "ph_chain"
+path = "src/bin/ph_chain.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "ph_replay"
+path = "src/bin/ph_replay.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "lts_replay"
+path = "src/bin/lts_replay.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "lts_chain"
+path = "src/bin/lts_chain.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "cmd_replay"
+path = "src/bin/cmd_replay.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "tts_chain"
+path = "src/bin/tts_chain.rs"
+required-features = ["oracle"]
+
+[[bin]]
+name = "dectalk"
+path = "src/bin/dectalk.rs"

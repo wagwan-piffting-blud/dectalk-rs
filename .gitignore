@@ -1,0 +1,12 @@
+dectalk-rs/target/
+dist/
+
+# Signing settings and keys for build_macos.sh
+macos_sign.env
+*.p8
+
+# Local only: the original engine, its oracle captures and the RE tooling.
+# None of it is needed to build.
+dectalk_engine/
+oracle/
+tools/
