@@ -19,6 +19,10 @@ fn dll_covered() -> &'static [bool] {
 const HEAP_BASE: u32 = 0x7000_0000;
 const HEAP_STRIDE: u32 = 0x1000;
 
+fn heap_span(size: u32) -> u32 {
+    HEAP_STRIDE.max((size + 0xfff) & !0xfff)
+}
+
 pub struct Region {
     pub name: &'static str,
     pub base: u32,
@@ -33,6 +37,7 @@ pub struct PipeWrite {
 pub struct Mem {
     pub regions: Vec<Region>,
     heap_next: u32,
+    heap_free: Vec<(u32, u32)>,
     pub pipe_log: Vec<PipeWrite>,
     pub pipe_in: std::collections::VecDeque<u16>,
     /// Refills `pipe_in` when it runs dry (called with the Mem so it can hand off `pipe_log`).
@@ -45,6 +50,7 @@ impl Mem {
         Mem {
             regions: vec![Region { name: "dll", base: tables::DATA_BASE, bytes: dll_image().to_vec() }],
             heap_next: HEAP_BASE,
+            heap_free: Vec::new(),
             pipe_log: Vec::new(),
             pipe_in: Default::default(),
             source: None,
@@ -119,15 +125,25 @@ impl Mem {
     }
 
     pub fn malloc(&mut self, size: u32) -> u32 {
-        let base = self.heap_next;
-        self.heap_next += HEAP_STRIDE.max((size + 0xfff) & !0xfff);
+        let span = heap_span(size);
+        // Freed spans are reused: PH allocates one message per frame, and a bump pointer alone
+        // wraps the 32-bit space after ~650k frames, landing new blocks on top of ctx/ph.
+        let base = match self.heap_free.iter().rposition(|&(_, s)| s == span) {
+            Some(i) => self.heap_free.swap_remove(i).0,
+            None => {
+                let base = self.heap_next;
+                self.heap_next = base.checked_add(span).expect("guest heap exhausted");
+                base
+            }
+        };
         self.regions.push(Region { name: "heap", base, bytes: vec![0xcd; size as usize] });
         base
     }
 
     pub fn free(&mut self, addr: u32) {
         if let Some(i) = self.regions.iter().position(|r| r.name == "heap" && r.base == addr) {
-            self.regions.remove(i);
+            let r = self.regions.remove(i);
+            self.heap_free.push((r.base, heap_span(r.bytes.len() as u32)));
         }
     }
 
@@ -223,3 +239,18 @@ pub const DRAIN_PIPE: u32 = 0xffff_fffe;
 
 const STACK_BASE: u32 = 0x0f00_0000;
 const STACK_SIZE: u32 = 0x0100_0000;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heap_reuses_freed_space() {
+        let mut m = Mem::new();
+        for _ in 0..1_000_000 {
+            let p = m.malloc(0x30);
+            m.free(p);
+        }
+        assert_eq!(m.heap_next, HEAP_BASE + HEAP_STRIDE);
+    }
+}
