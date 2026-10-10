@@ -66,28 +66,30 @@ cargo build --release --bin dectalk
 
 ### All targets
 
-`build_targets.ps1` builds every Windows and Linux target from a Windows machine with **no cross toolchain**: the Linux targets are linked by Rust's own bundled `rust-lld` (see `dectalk-rs/.cargo/config.toml`). Missing `rustup` targets are added automatically. Results land in `dist/`.
+`build_targets.ps1` builds all seven targets from a Windows machine with **no cross toolchain**: the Linux targets are linked by Rust's own bundled `rust-lld`, and macOS is handed to a Mac over ssh (below). Missing `rustup` targets are added automatically. Results land in `dist/`.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build_targets.ps1                    # everything but macOS
+powershell -ExecutionPolicy Bypass -File build_targets.ps1                    # all seven
+powershell -ExecutionPolicy Bypass -File build_targets.ps1 -NoMac             # everything but macOS
 powershell -ExecutionPolicy Bypass -File build_targets.ps1 -Only linux-arm64  # one target
 powershell -ExecutionPolicy Bypass -File build_targets.ps1 -Check             # build, then verify
 ```
 
-The script checks each binary's header against the architecture it was meant for, so a mis-targeted build cannot ship. `-Check` renders a fixed set of phrases (both 11 kHz and 8 kHz) through every built binary and demands byte-identical WAVs against `windows-amd64`. The Linux binaries run under WSL, the ARM ones through `qemu-user` on the CPU they target (Cortex-A7 for armv7, ARM1176 for armv6), which needs `apt install qemu-user-static` in the default WSL distro.
+The script checks each binary's header against the architecture it was meant for, so a mis-targeted build cannot ship. `-Check` renders a fixed set of phrases (both 11 kHz and 8 kHz) through every built binary and demands that each WAV's SHA256 equal the one from `windows-amd64`. The Linux binaries run under WSL, the ARM ones through `qemu-user` on the CPU they target (Cortex-A7 for armv7, ARM1176 for armv6), which needs `apt install qemu-user-static` in the default WSL distro. Both slices of the macOS binary run on the Mac over ssh, the Intel one under Rosetta. `-NoBuild -Check` checks what is already in `dist/`.
 
 ### macOS
 
 macOS has to be linked on a Mac. `build_macos.sh` builds both slices, `lipo`s them into one universal binary, checks that the Apple Silicon slice and the Intel slice (under Rosetta) render the same phrases byte-identically, then signs it with a Developer ID (hardened runtime) and notarizes it. A bare Mach-O cannot be stapled, so Gatekeeper checks the ticket online on first run.
 
 ```sh
-sh build_macos.sh              # build, check, sign, notarize
-sh build_macos.sh --no-sign    # unsigned local build
+sh build_macos.sh                # build, sign, check, notarize
+sh build_macos.sh --no-notarize  # sign only
+sh build_macos.sh --no-sign      # unsigned local build
 ```
 
-Signing reads `DECTALK_SIGN_ID`, `DECTALK_NOTARY_KEY_ID`, `DECTALK_NOTARY_ISSUER` and `DECTALK_NOTARY_KEY` from the environment, or from a `macos_sign.env` beside the script (gitignored).
+The signing identity and the App Store Connect API key ID, issuer and `.p8` path are stored at the top of `build_macos.sh`. If the `.p8` is not at the stored path, the script looks for `AuthKey_<key id>.p8` in `~/Desktop`, `~/Downloads`, `~/Documents`, `~/.appstoreconnect/private_keys`, `~/.private_keys` and `~/private_keys`. The login keychain is unlocked before the build when it is locked (over ssh it always is), which asks for the Mac password.
 
-From Windows, `build_targets.ps1 -Mac user@mac:/path/to/this/checkout` runs it over ssh and picks the result up from `dist/`; the path must be this same checkout as the Mac sees it (an SMB share, for example).
+From Windows, `build_targets.ps1` runs it over ssh on `-MacHost` (default `wags@192.168.1.86`) in `-MacPath` (default `/Volumes/LocalUser/Documents/dect`) and picks the result up from `dist/`; the path must be this same checkout as the Mac sees it (an SMB share, for example).
 
 ## Using it as a library
 

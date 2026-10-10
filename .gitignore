@@ -1,8 +1,7 @@
 dectalk-rs/target/
 dist/
 
-# Signing settings and keys for build_macos.sh
-macos_sign.env
+# Notary keys for build_macos.sh
 *.p8
 
 # Local only: the original engine, its oracle captures and the RE tooling.
