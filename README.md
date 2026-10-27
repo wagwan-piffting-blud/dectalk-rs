@@ -47,6 +47,7 @@ A dictionary on disk takes precedence over the built-in copy: `-d`, then `$DECTA
 dectalk-windows-amd64.exe    x86_64-pc-windows-msvc          Windows 10/11 64-bit
 dectalk-windows-x86.exe      i686-pc-windows-msvc            32-bit Windows
 dectalk-linux-amd64          x86_64-unknown-linux-musl       x86_64 Linux (most desktop/server distros, Docker, WSL)
+dectalk-linux-x86            i686-unknown-linux-musl         32-bit x86 Linux, Pentium 4 or newer
 dectalk-linux-arm64          aarch64-unknown-linux-musl      Pi 3/4/5, Zero 2 W on 64-bit Raspberry Pi OS
 dectalk-linux-armv7          armv7-unknown-linux-musleabihf  Pi 2/3/4 on 32-bit Raspberry Pi OS
 dectalk-linux-armv6          arm-unknown-linux-musleabihf    Pi 1, Zero / Zero W
@@ -66,10 +67,10 @@ cargo build --release --bin dectalk
 
 ### All targets
 
-`build_targets.ps1` builds all seven targets from a Windows machine with **no cross toolchain**: the Linux targets are linked by Rust's own bundled `rust-lld`, and macOS is handed to a Mac over ssh (below). Missing `rustup` targets are added automatically. Results land in `dist/`.
+`build_targets.ps1` builds all eight targets from a Windows machine with **no cross toolchain**: the Linux targets are linked by Rust's own bundled `rust-lld`, and macOS is handed to a Mac over ssh (below). Missing `rustup` targets are added automatically. Results land in `dist/`.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File build_targets.ps1                    # all seven
+powershell -ExecutionPolicy Bypass -File build_targets.ps1                    # all eight
 powershell -ExecutionPolicy Bypass -File build_targets.ps1 -NoMac             # everything but macOS
 powershell -ExecutionPolicy Bypass -File build_targets.ps1 -Only linux-arm64  # one target
 powershell -ExecutionPolicy Bypass -File build_targets.ps1 -Check             # build, then verify

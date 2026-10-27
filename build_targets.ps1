@@ -8,7 +8,7 @@
 #     powershell -ExecutionPolicy Bypass -File build_targets.ps1 -NoBuild -Check   check dist/ as it is
 #
 # -Only takes macos-universal, windows-amd64, windows-x86, linux-amd64,
-# linux-arm64, linux-armv7 or linux-armv6.
+# linux-x86, linux-arm64, linux-armv7 or linux-armv6.
 #
 # Windows and Linux build here with no cross toolchain. Windows is MSVC with
 # the C runtime linked statically, so no VC++ redistributable is needed. Linux
@@ -48,6 +48,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+# .NET calls ([System.IO.File] etc.) resolve relative paths against the
+# process's directory, which Set-Location leaves where the shell started
+[Environment]::CurrentDirectory = $PSScriptRoot
 
 # Double-clicked, the script is started by Explorer: the Mac's keychain
 # password prompt never reaches the window, so the build would wait forever,
@@ -115,6 +118,11 @@ $targets = @(
     @{ n = "linux-amd64"; t = "x86_64-unknown-linux-musl"; os = "linux";
        note = "64-bit Linux PC, server, Docker, WSL"; arch = "ELF/x86-64/64"; run = "wsl";
        out = "$Bin-linux-amd64" },
+    # i686, not i586: i686 does its floating point in SSE2 like every other
+    # x86 target here, where i586's x87 would round differently.
+    @{ n = "linux-x86"; t = "i686-unknown-linux-musl"; os = "linux";
+       note = "32-bit x86 Linux, Pentium 4 or newer"; arch = "ELF/x86/32"; run = "wsl";
+       out = "$Bin-linux-x86" },
     @{ n = "linux-arm64"; t = "aarch64-unknown-linux-musl"; os = "linux";
        note = "64-bit Raspberry Pi OS: Pi 3/4/5, Zero 2 W"; arch = "ELF/AArch64/64"; run = "wsl"; qemu = "qemu-aarch64-static";
        out = "$Bin-linux-arm64" },
@@ -156,6 +164,7 @@ function Get-BinArch([string]$path) {
         $machine = $b[18] -bor ($b[19] -shl 8)
         switch ($machine) {
             0x28 { return "ELF/ARM/$bits" }
+            0x03 { return "ELF/x86/$bits" }
             0x3E { return "ELF/x86-64/$bits" }
             0xB7 { return "ELF/AArch64/$bits" }
             default { return ("ELF/0x{0:x}/{1}" -f $machine, $bits) }
